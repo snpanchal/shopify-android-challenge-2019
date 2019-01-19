@@ -4,6 +4,8 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -17,13 +19,15 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.concurrent.ExecutionException;
-
 import de.hdodenhof.circleimageview.CircleImageView;
+import io.reactivex.Observable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.observers.DisposableObserver;
+import io.reactivex.schedulers.Schedulers;
 
 public class DetailsActivity extends AppCompatActivity {
 
-    // JSON Object Tags
+    // JSON Tags
     private static final String COLLECTS_TAG = "collects";
     private static final String PRODUCT_ID_TAG = "product_id";
     private static final String PRODUCTS_TAG = "products";
@@ -34,20 +38,103 @@ public class DetailsActivity extends AppCompatActivity {
     private static final String INVENTORY_QUANTITY_TAG = "inventory_quantity";
 
     private String collectionName;
+    private DisposableObserver<String> productsObserver;
+    private DisposableObserver<String> detailsObserver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_details);
 
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+        // Get collection details from Intent
         collectionName = getIntent().getStringExtra(CollectionsAdapter.COLLECTION_NAME);
         String collectionId = getIntent().getStringExtra(CollectionsAdapter.COLLECTION_ID);
-        String imageLink = getIntent().getStringExtra(CollectionsAdapter.COLLECTION_IMAGE);
-        String bodyHtml = getIntent().getStringExtra(CollectionsAdapter.COLLECTION_HTML);
+        final String imageLink = getIntent().getStringExtra(CollectionsAdapter.COLLECTION_IMAGE);
+        final String bodyHtml = getIntent().getStringExtra(CollectionsAdapter.COLLECTION_HTML);
 
-        String[] productIds = getProductsInCollection(collectionId);
-        Product[] productDetails = getDetailsOfProducts(productIds);
+        // Get products for current collection
+        String productsEndpoint = getProductsEndpoint(collectionId);
+        productsObserver = getObservable(productsEndpoint)
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribeWith(new DisposableObserver<String>() {
+                @Override
+                public void onNext(String productsResult) {
+                    try {
+                        // Extract data from JSON
+                        JSONObject collectsObj = new JSONObject(productsResult);
+                        JSONArray collects = collectsObj.getJSONArray(COLLECTS_TAG);
 
+                        int numCollects = collects.length();
+                        String[] productIds = new String[numCollects];
+
+                        for (int i = 0; i < numCollects; i++) {
+                            JSONObject currentCollect = collects.getJSONObject(i);
+                            String productId = currentCollect.getString(PRODUCT_ID_TAG);
+                            productIds[i] = productId;
+                        }
+
+                        getProductDetails(productIds, imageLink, bodyHtml);
+
+                    } catch (JSONException e) {
+                        Toast.makeText(DetailsActivity.this, "Error parsing data.", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    Log.e("Error", e.getMessage(), e);
+                }
+
+                @Override
+                public void onComplete() {}
+            });
+    }
+
+    private void getProductDetails(String[] productIds, String imageLink, String bodyHtml) {
+        String detailsEndpoint = getProductDetailsEndpoint(productIds);
+        detailsObserver = getObservable(detailsEndpoint)
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribeWith(new DisposableObserver<String>() {
+                @Override
+                public void onNext(String detailsResult) {
+                    try {
+                        // Extract data from JSON
+                        JSONObject productsObj = new JSONObject(detailsResult);
+                        JSONArray products = productsObj.getJSONArray(PRODUCTS_TAG);
+
+                        int numProducts = products.length();
+                        Product[] productDetails = new Product[numProducts];
+
+                        for (int i = 0; i < numProducts; i++) {
+                            JSONObject currentProduct = products.getJSONObject(i);
+                            String name = currentProduct.getString(TITLE_TAG);
+                            String imageLink = currentProduct.getJSONObject(IMAGE_TAG).getString(SRC_TAG);
+                            int inventory = calculateInventory(currentProduct.getJSONArray(VARIANTS_TAG));
+                            productDetails[i] = new Product(name, inventory, collectionName, imageLink);
+                        }
+
+                        loadViews(imageLink, bodyHtml, productDetails);
+                    } catch (JSONException e) {
+                        Toast.makeText(DetailsActivity.this, "Error parsing data.", Toast.LENGTH_SHORT).show();
+                    }
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    Log.e("Error", e.getMessage(), e);
+                }
+
+                @Override
+                public void onComplete() {}
+            });
+    }
+
+    private void loadViews(String imageLink, String bodyHtml, Product[] productDetails) {
+        // Load information into views
         RecyclerView productsList = findViewById(R.id.products_list);
         productsList.setHasFixedSize(true);
         productsList.setLayoutManager(new LinearLayoutManager(this));
@@ -64,39 +151,13 @@ public class DetailsActivity extends AppCompatActivity {
         tvBodyHtml.setText(bodyHtml);
     }
 
-    private String getProductsEndpoint(String collectionId) {
-        return "https://shopicruit.myshopify.com/admin/collects.json?collection_id=" + collectionId + "&page=1&access_token=c32313df0d0ef512ca64d5b336a0d7c6";
+    public Observable<String> getObservable(String requestUrl) {
+        RequestCaller reqCaller = new RequestCaller();
+        return Observable.defer(() -> Observable.just(reqCaller.makeRequest(requestUrl)));
     }
 
-    private String[] getProductsInCollection(String collectionId) {
-        RequestCaller reqCaller = new RequestCaller();
-        String endpoint = getProductsEndpoint(collectionId);
-        try {
-            String result = reqCaller.execute(endpoint).get();
-
-            JSONObject collectsObj = new JSONObject(result);
-            JSONArray collects = collectsObj.getJSONArray(COLLECTS_TAG);
-
-            int numCollects = collects.length();
-            String[] productIds = new String[numCollects];
-
-            for (int i = 0; i < numCollects; i++) {
-                JSONObject currentCollect = collects.getJSONObject(i);
-                String productId = currentCollect.getString(PRODUCT_ID_TAG);
-                productIds[i] = productId;
-            }
-
-            return productIds;
-
-        } catch (InterruptedException e) {
-            Toast.makeText(this, "Something went wrong, process interrupted.", Toast.LENGTH_SHORT).show();
-        } catch (ExecutionException e) {
-            Toast.makeText(this, "Task unexpectedly aborted.", Toast.LENGTH_SHORT).show();
-        } catch (JSONException e) {
-            Toast.makeText(this, "Data parsing error.", Toast.LENGTH_SHORT).show();
-        }
-
-        return null;
+    private String getProductsEndpoint(String collectionId) {
+        return "https://shopicruit.myshopify.com/admin/collects.json?collection_id=" + collectionId + "&page=1&access_token=c32313df0d0ef512ca64d5b336a0d7c6";
     }
 
     private String getProductDetailsEndpoint(String[] productIds) {
@@ -122,39 +183,26 @@ public class DetailsActivity extends AppCompatActivity {
         return inventory;
     }
 
-    private Product[] getDetailsOfProducts(String[] productIds) {
-        RequestCaller reqCaller = new RequestCaller();
-        String endpoint = getProductDetailsEndpoint(productIds);
-
-        try {
-            String result = reqCaller.execute(endpoint).get();
-
-            JSONObject productsObj = new JSONObject(result);
-            JSONArray products = productsObj.getJSONArray(PRODUCTS_TAG);
-
-            int numProducts = products.length();
-            Product[] productDetails = new Product[numProducts];
-
-            for (int i = 0; i < numProducts; i++) {
-                JSONObject currentProduct = products.getJSONObject(i);
-                String name = currentProduct.getString(TITLE_TAG);
-                String imageLink = currentProduct.getJSONObject(IMAGE_TAG).getString(SRC_TAG);
-                int inventory = calculateInventory(currentProduct.getJSONArray(VARIANTS_TAG));
-                productDetails[i] = new Product(name, inventory, collectionName, imageLink);
-            }
-
-            return productDetails;
-
-        } catch (InterruptedException e) {
-            Toast.makeText(this, "Something went wrong, process interrupted.", Toast.LENGTH_SHORT).show();
-        } catch (ExecutionException e) {
-            Toast.makeText(this, "Task unexpectedly aborted.", Toast.LENGTH_SHORT).show();
-        } catch (JSONException e) {
-            Toast.makeText(this, "Data parsing error.", Toast.LENGTH_SHORT).show();
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case android.R.id.home:
+                onBackPressed();
+                return true;
         }
 
-        return null;
+        return super.onOptionsItemSelected(item);
     }
 
-
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Dispose observers to avoid memory leaks
+        if (productsObserver != null && !productsObserver.isDisposed()) {
+            productsObserver.dispose();
+        }
+        if (detailsObserver != null && !detailsObserver.isDisposed()) {
+            detailsObserver.dispose();
+        }
+    }
 }

@@ -1,30 +1,30 @@
 package com.example.shopifyandroid;
 
-import android.os.AsyncTask;
-import android.os.Build;
-import android.support.annotation.RequiresApi;
-
-import java.io.IOException;
+import android.util.Log;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
-public class RequestCaller extends AsyncTask<String, Void, String> {
-    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
-    @Override
-    protected String doInBackground(String... params) {
+public class RequestCaller {
+
+    public String makeRequest(String requestUrl) {
         OkHttpClient client = new OkHttpClient();
-        String requestUrl = params[0];
 
         Request req = new Request.Builder()
                 .url(requestUrl)
                 .build();
 
         try (Response res = client.newCall(req).execute()) {
-            return res.body().string();
-        } catch (IOException e) {
-            e.printStackTrace();
+            ResponseBody resBody = res.body();
+            if (resBody != null) {
+                return resBody.string();
+            }
+
+            throw new Error("Could not get result.");
+        } catch (Exception e) {
+            Log.e("Error", e.getMessage(), e);
         }
 
         return null;
