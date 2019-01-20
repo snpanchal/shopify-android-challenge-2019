@@ -44,6 +44,8 @@ public class CollectionsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_collections);
 
+        getSupportActionBar().setTitle("Collections");
+
         // Use an observable to get collection data
         collectionsObserver = getCollectionsObservable()
             .subscribeOn(Schedulers.io())

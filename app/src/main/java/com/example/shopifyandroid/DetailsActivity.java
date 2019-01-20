@@ -36,6 +36,8 @@ public class DetailsActivity extends AppCompatActivity {
     private static final String SRC_TAG = "src";
     private static final String VARIANTS_TAG = "variants";
     private static final String INVENTORY_QUANTITY_TAG = "inventory_quantity";
+    private static final String BODY_HTML_TAG = "body_html";
+    private static final String VENDOR_TAG = "vendor";
 
     private String collectionName;
     private DisposableObserver<String> productsObserver;
@@ -46,6 +48,7 @@ public class DetailsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_details);
 
+        getSupportActionBar().setTitle("Collection Details");
         getSupportActionBar().setDisplayHomeAsUpEnabled(true);
 
         // Get collection details from Intent
@@ -113,8 +116,10 @@ public class DetailsActivity extends AppCompatActivity {
                             JSONObject currentProduct = products.getJSONObject(i);
                             String name = currentProduct.getString(TITLE_TAG);
                             String imageLink = currentProduct.getJSONObject(IMAGE_TAG).getString(SRC_TAG);
+                            String description = currentProduct.getString(BODY_HTML_TAG);
+                            String vendor = currentProduct.getString(VENDOR_TAG);
                             int inventory = calculateInventory(currentProduct.getJSONArray(VARIANTS_TAG));
-                            productDetails[i] = new Product(name, inventory, collectionName, imageLink);
+                            productDetails[i] = new Product(name, inventory, collectionName, imageLink, vendor, description);
                         }
 
                         loadViews(imageLink, bodyHtml, productDetails);
@@ -138,7 +143,7 @@ public class DetailsActivity extends AppCompatActivity {
         RecyclerView productsList = findViewById(R.id.products_list);
         productsList.setHasFixedSize(true);
         productsList.setLayoutManager(new LinearLayoutManager(this));
-        ProductsAdapter adapter = new ProductsAdapter(productDetails);
+        ProductsAdapter adapter = new ProductsAdapter(productDetails, imageLink);
         productsList.setAdapter(adapter);
 
         View collectionDetails = findViewById(R.id.collection_details);

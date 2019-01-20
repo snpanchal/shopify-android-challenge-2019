@@ -9,13 +9,17 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.example.shopifyandroid.DetailsActivity;
 import com.example.shopifyandroid.R;
 import com.example.shopifyandroid.models.Collection;
+import com.squareup.picasso.Picasso;
 
 import java.util.Map;
+
+import de.hdodenhof.circleimageview.CircleImageView;
 
 public class CollectionsAdapter extends RecyclerView.Adapter<CollectionsAdapter.CollectionsViewHolder> {
 
@@ -47,6 +51,7 @@ public class CollectionsAdapter extends RecyclerView.Adapter<CollectionsAdapter.
         String collectionName = collections[i];
         Collection collection = collectionsMap.get(collectionName);
         holder.setCollectionName(collectionName);
+        holder.setCollectionPicture(collection.getImageLink());
         holder.setClickAction(context, collectionName, collection.getId(), collection.getBodyHtml(), collection.getImageLink());
     }
 
@@ -71,7 +76,8 @@ public class CollectionsAdapter extends RecyclerView.Adapter<CollectionsAdapter.
         }
 
         void setClickAction(final Context context, final String collectionName, final String collectionId, final String bodyHtml, final String imageLink) {
-            tvCollectionName.setOnClickListener(view -> {
+            LinearLayout collectionLayout = rowView.findViewById(R.id.collection_layout);
+            rowView.setOnClickListener(view -> {
                 // Send collection details to DetailsActivity
                 Intent detailsIntent = new Intent(context, DetailsActivity.class);
                 detailsIntent.putExtra(COLLECTION_NAME, collectionName);
@@ -80,6 +86,11 @@ public class CollectionsAdapter extends RecyclerView.Adapter<CollectionsAdapter.
                 detailsIntent.putExtra(COLLECTION_IMAGE, imageLink);
                 context.startActivity(detailsIntent);
             });
+        }
+
+        public void setCollectionPicture(String imageLink) {
+            CircleImageView collectionImage = rowView.findViewById(R.id.collection_picture);
+            Picasso.get().load(imageLink).into(collectionImage);
         }
     }
 }

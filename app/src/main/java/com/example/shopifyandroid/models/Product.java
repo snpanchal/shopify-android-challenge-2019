@@ -6,12 +6,16 @@ public class Product {
     private int inventory;
     private String collectionTitle;
     private String imageLink;
+    private String vendor;
+    private String description;
 
-    public Product(String name, int inventory, String collectionTitle, String imageLink) {
+    public Product(String name, int inventory, String collectionTitle, String imageLink, String vendor, String description) {
         this.name = name;
         this.inventory = inventory;
         this.collectionTitle = collectionTitle;
         this.imageLink = imageLink;
+        this.vendor = vendor;
+        this.description = description;
     }
 
     public String getName() {
@@ -44,5 +48,21 @@ public class Product {
 
     public void setImageLink(String imageLink) {
         this.imageLink = imageLink;
+    }
+
+    public String getVendor() {
+        return vendor;
+    }
+
+    public void setVendor(String vendor) {
+        this.vendor = vendor;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 }

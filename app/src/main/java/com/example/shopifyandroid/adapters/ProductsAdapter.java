@@ -16,9 +16,11 @@ import de.hdodenhof.circleimageview.CircleImageView;
 public class ProductsAdapter extends RecyclerView.Adapter<ProductsAdapter.ProductViewHolder> {
 
     private Product[] products;
+    private String collectionImageLink;
 
-    public ProductsAdapter(Product[] products) {
+    public ProductsAdapter(Product[] products, String collectionImageLink) {
         this.products = products;
+        this.collectionImageLink = collectionImageLink;
     }
 
     @NonNull
@@ -31,10 +33,7 @@ public class ProductsAdapter extends RecyclerView.Adapter<ProductsAdapter.Produc
     @Override
     public void onBindViewHolder(@NonNull ProductViewHolder holder, int i) {
         Product product = products[i];
-        holder.setImage(product.getImageLink());
-        holder.setName(product.getName());
-        holder.setCollectionTitle(product.getCollectionTitle());
-        holder.setInventory(product.getInventory());
+        holder.setViews(product, collectionImageLink);
     }
 
     @Override
@@ -51,24 +50,27 @@ public class ProductsAdapter extends RecyclerView.Adapter<ProductsAdapter.Produc
             rowView = itemView;
         }
 
-        public void setImage(String imageLink) {
+        public void setViews(Product product, String collectionImageLink) {
             CircleImageView productImage = rowView.findViewById(R.id.product_image);
-            Picasso.get().load(imageLink).into(productImage);
-        }
+            Picasso.get().load(product.getImageLink()).into(productImage);
 
-        public void setName(String name) {
+            CircleImageView collectionImage = rowView.findViewById(R.id.detail_collection_image);
+            Picasso.get().load(collectionImageLink).into(collectionImage);
+
             TextView productName = rowView.findViewById(R.id.product_name);
-            productName.setText(name);
-        }
+            productName.setText(product.getName());
 
-        public void setCollectionTitle(String collectionTitle) {
             TextView productCollectionTitle = rowView.findViewById(R.id.product_collection_name);
-            productCollectionTitle.setText(collectionTitle);
-        }
+            productCollectionTitle.setText(product.getCollectionTitle());
 
-        public void setInventory(int inventory) {
             TextView productInventory = rowView.findViewById(R.id.total_inventory);
-            productInventory.setText("Inventory: " + inventory);
+            productInventory.setText("Inventory: " + product.getInventory());
+
+            TextView productDescription = rowView.findViewById(R.id.product_description);
+            productDescription.setText(product.getDescription());
+
+            TextView productVendor = rowView.findViewById(R.id.product_vendor);
+            productVendor.setText("Vendor: " + product.getVendor());
         }
     }
 }
